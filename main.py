@@ -2,6 +2,7 @@ from summarizer import Summarizer
 from summarizer.sbert import SBertSummarizer
 from keybert import KeyBERT
 # from summarizer.text_processors.coreference_handler import CoreferenceHandler
+from transformers import pipeline
 
 
 from selenium import webdriver
@@ -36,14 +37,14 @@ from openpyxl.styles import Alignment
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('mac_morpho')
-nltk.download('maxent_ne_chunker_tab')
-nltk.download('maxent_ne_chunker')
-nltk.download('words')
-nltk.download('stopwords')
+# nltk.download('punkt')
+# nltk.download('punkt_tab')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('mac_morpho')
+# nltk.download('maxent_ne_chunker_tab')
+# nltk.download('maxent_ne_chunker')
+# nltk.download('words')
+# nltk.download('stopwords')
 
 
 def configurar_chromedriver():
@@ -301,14 +302,14 @@ def extrair_palavras_chaves(texto, tagger, keyBert):
     return frases_nominais, principais_palavras, principais_tfidf.index.tolist(), palavras_chaves_bert
 
 # MODELOS
-model = Summarizer() # Bert 301.840493 segundos 309.030349 segundos
+# model = Summarizer() # Bert 301.840493 segundos 309.030349 segundos
 
 # handler = CoreferenceHandler(greedyness=.4)
 # model = Summarizer(sentence_handler=handler)
 
 # model = Summarizer('distilbert-base-uncased', hidden=[-1,-2], hidden_concat=True) # Distil Bert 96.214338 segundos 86.871495 segundos
 
-# model = SBertSummarizer('paraphrase-MiniLM-L6-v2') # Sentence Bert 60.28 segundos 57.753437 segundos
+model = SBertSummarizer('paraphrase-MiniLM-L6-v2') # Sentence Bert 60.28 segundos 57.753437 segundos
 
 kw_model = KeyBERT()
 
@@ -319,103 +320,72 @@ file_name = 'docs_rafael.xlsx'
 
 links, resumos, resumos_bert = processar_noticias_e_calcular_relevancia(file_name, model)
 
-# tagger = treinar_tagger_portugues()
+tagger = treinar_tagger_portugues()
 
-# todos_principais_tfidf = []
-# for resumo in resumos:
-#     frases_nominais, principais_palavras, palavras_chave_tf_idf, palavras_chave_bert = extrair_palavras_chaves(resumo, tagger, kw_model)
-#     todos_principais_tfidf.append(palavras_chave_tf_idf)
+todos_principais_tfidf = []
+for resumo in resumos:
+    frases_nominais, principais_palavras, palavras_chave_tf_idf, palavras_chave_bert = extrair_palavras_chaves(resumo, tagger, kw_model)
+    todos_principais_tfidf.append(palavras_chave_tf_idf)
 
-# todos_principais_bert = []
-# for resumo in resumos_bert:
-#     frases_nominais, principais_palavras, palavras_chave_tf_idf, palavras_chave_bert = extrair_palavras_chaves(resumo, tagger, kw_model)
-#     todos_principais_bert.append(palavras_chave_bert)
+todos_principais_bert = []
+for resumo in resumos_bert:
+    frases_nominais, principais_palavras, palavras_chave_tf_idf, palavras_chave_bert = extrair_palavras_chaves(resumo, tagger, kw_model)
+    todos_principais_bert.append(palavras_chave_bert)
 
-# vetor_ajustado = []
-# for vetor in todos_principais_bert:
-#     novo_vetor = []
-#     for item in vetor:
-#         novo_vetor.append(item[0])
+vetor_ajustado = []
+for vetor in todos_principais_bert:
+    novo_vetor = []
+    for item in vetor:
+        novo_vetor.append(item[0])
 
-#     string_unica = ", ".join(novo_vetor)
-#     vetor_ajustado.append(string_unica)
+    string_unica = ", ".join(novo_vetor)
+    vetor_ajustado.append(string_unica)
 
-# end_time = time.time()
+end_time = time.time()
 
-# df_resumos = pd.DataFrame({
-#     'Link': links,
-#     'Resumo': resumos,
-#     'Palavras-chave TF-IDF': [', '.join(t) for t in todos_principais_tfidf],
-#     'Resumos Bert': resumos_bert,
-#     'Palavras-chaves Bert': vetor_ajustado
-# })
+checkpoint = "Sami92/XLM-R-Large-ClaimDetection"
+tokenizer_kwargs = {'padding':True,'truncation':True,'max_length':512}
+claimdetection = pipeline("text-classification", model = checkpoint, tokenizer =checkpoint, **tokenizer_kwargs, device="cuda")
 
-# df_resumos.to_excel('resultados/Bert_output.xlsx', index=False, engine='openpyxl')
+conjuncao_pattern = r'\b(e|nem|também|bem como|não só...mas|também|mas|porém|contudo|todavia|entretanto|no entanto|não obstante|ou|ou...ou|já...já|ora...ora|quer...quer|seja...seja|logo|pois|portanto|assim|por isso|por consequência|por conseguinte|porque|que|porquanto|visto que|uma vez que|já que|pois que|como|tanto que|tão que|tal que|tamanho que|de forma que|de modo que|de sorte que|de tal forma que|a fim de que|para que|quando|enquanto|agora que|logo que|desde que|assim que|tanto que|apenas|se|caso|desde|salvo se|exceto se|contando que|embora|conquanto|ainda que|mesmo que|se bem que|posto que|assim como|tal|qual|tanto como|conforme|consoante|segundo|à proporção que|à medida que|ao passo que|quanto mais...mais)\b|\.'
 
-# wb = load_workbook('resultados/Bert_output.xlsx')
-# ws = wb.active
-
-# ws.column_dimensions[get_column_letter(1)].width = 20
-# ws.column_dimensions[get_column_letter(2)].width = 80
-# ws.column_dimensions[get_column_letter(3)].width = 25
-# ws.column_dimensions[get_column_letter(4)].width = 80
-# ws.column_dimensions[get_column_letter(5)].width = 25
-
-# for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=5):
-#     for cell in row:
-#         cell.alignment = Alignment(wrap_text=True)
-
-# wb.save('resultados/Bert_output.xlsx')
-
-# print(f"\nTEMPO TOTAL: {end_time - start_time:.6f} segundos")
+termos_relevantes_geral = []
+for resumo in resumos_bert:
+    partes = re.split(conjuncao_pattern, resumo)
+    partes = [parte.strip() for parte in partes if parte is not None and parte.strip()]
+    results = claimdetection(partes)
+    termos_relevantes_resumo = []
+    for i, result in enumerate(results):
+        if result['label'] == 'factual':
+            termos_relevantes_resumo.append(partes[i])
+    termos_relevantes_geral.append(str(termos_relevantes_resumo))
 
 
+df_resumos = pd.DataFrame({
+    'Link': links,
+    'Resumo': resumos,
+    'Palavras-chave TF-IDF': [', '.join(t) for t in todos_principais_tfidf],
+    'Resumos Bert': resumos_bert,
+    'Palavras-chaves Bert': vetor_ajustado,
+    'termos_relevantes': termos_relevantes_geral
+})
 
-def cosine_similarity_matrix(vectors):
-    return cosine_similarity(vectors)
+df_resumos.to_excel('resultados/check_worthy_results.xlsx', index=False, engine='openpyxl')
 
-# Carregar o BERTimbau
-tokenizer = BertTokenizer.from_pretrained('neuralmind/bert-base-portuguese-cased')
-model = BertModel.from_pretrained('neuralmind/bert-base-portuguese-cased')
+wb = load_workbook('resultados/check_worthy_results.xlsx')
+ws = wb.active
 
-# Função para extrair embeddings de uma sentença
-def get_sentence_embedding(sentence):
-    inputs = tokenizer(sentence, return_tensors='pt', padding=True, truncation=True)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    # Usamos a média dos vetores da última camada oculta como a representação da sentença
-    return outputs.last_hidden_state.mean(dim=1).squeeze()
+ws.column_dimensions[get_column_letter(1)].width = 20
+ws.column_dimensions[get_column_letter(2)].width = 80
+ws.column_dimensions[get_column_letter(3)].width = 25
+ws.column_dimensions[get_column_letter(4)].width = 80
+ws.column_dimensions[get_column_letter(5)].width = 25
+ws.column_dimensions[get_column_letter(6)].width = 80
 
-# Função para dividir sentenças em fragmentos de até 3 palavras
-def split_into_chunks(sentence, max_words=3):
-    words = sentence.split()
-    return [' '.join(words[i:i+max_words]) for i in range(0, len(words), max_words)]
+for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=6):
+    for cell in row:
+        cell.alignment = Alignment(wrap_text=True)
 
-# Função para retornar as sentenças mais relevantes, com fragmentos de até 3 palavras
-def summarize(text, num_sentences=3):
-    # Dividir o texto em sentenças
-    sentences = nltk.sent_tokenize(text)
+wb.save('resultados/check_worthy_results.xlsx')
 
-    # Obter os embeddings de cada sentença
-    sentence_embeddings = [get_sentence_embedding(sentence) for sentence in sentences]
-
-    # Criar uma matriz de similaridade entre as sentenças (auto-similaridade)
-    similarity_matrix = cosine_similarity_matrix(sentence_embeddings)
-
-    # Somar as similaridades de cada sentença e selecionar as mais importantes
-    sentence_scores = similarity_matrix.sum(axis=1)
-    ranked_sentences = sorted(((score, idx) for idx, score in enumerate(sentence_scores)), reverse=True)
-
-    # Selecionar as sentenças mais relevantes
-    summarized_sentences = [sentences[idx] for score, idx in ranked_sentences[:num_sentences]]
-
-    # Quebrar as sentenças mais relevantes em fragmentos de no máximo 3 palavras
-    chunks = []
-    for sentence in summarized_sentences:
-        chunks.extend(split_into_chunks(sentence, max_words=3))
-    
-    # Retornar os fragmentos
-    return ' '.join(chunks)
-
-summary = summarize(resumos_bert[0], num_sentences=2)
-print(summary)
+print(f"\nTEMPO TOTAL: {end_time - start_time:.6f} segundos")
