@@ -4,7 +4,6 @@ from keybert import KeyBERT
 # from summarizer.text_processors.coreference_handler import CoreferenceHandler
 from transformers import pipeline
 
-
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -294,9 +293,6 @@ def extrair_palavras_chaves(texto, tagger, keyBert):
     tfidf_scores = pd.DataFrame(X.T.toarray(), index=vectorizer.get_feature_names_out(), columns=["score"])
     principais_tfidf = tfidf_scores.nlargest(10, "score")
 
-
-
-
     palavras_chaves_bert = keyBert.extract_keywords(texto)
 
     return frases_nominais, principais_palavras, principais_tfidf.index.tolist(), palavras_chaves_bert
@@ -312,7 +308,6 @@ def extrair_palavras_chaves(texto, tagger, keyBert):
 model = SBertSummarizer('paraphrase-MiniLM-L6-v2') # Sentence Bert 60.28 segundos 57.753437 segundos
 
 kw_model = KeyBERT()
-
 
 start_time = time.time()
 
@@ -345,20 +340,42 @@ end_time = time.time()
 
 checkpoint = "Sami92/XLM-R-Large-ClaimDetection"
 tokenizer_kwargs = {'padding':True,'truncation':True,'max_length':512}
-claimdetection = pipeline("text-classification", model = checkpoint, tokenizer =checkpoint, **tokenizer_kwargs, device="cuda")
+claimdetection = pipeline("text-classification", model=checkpoint, tokenizer=checkpoint, **tokenizer_kwargs, device="cpu")
 
-conjuncao_pattern = r'\b(e|nem|também|bem como|não só...mas|também|mas|porém|contudo|todavia|entretanto|no entanto|não obstante|ou|ou...ou|já...já|ora...ora|quer...quer|seja...seja|logo|pois|portanto|assim|por isso|por consequência|por conseguinte|porque|que|porquanto|visto que|uma vez que|já que|pois que|como|tanto que|tão que|tal que|tamanho que|de forma que|de modo que|de sorte que|de tal forma que|a fim de que|para que|quando|enquanto|agora que|logo que|desde que|assim que|tanto que|apenas|se|caso|desde|salvo se|exceto se|contando que|embora|conquanto|ainda que|mesmo que|se bem que|posto que|assim como|tal|qual|tanto como|conforme|consoante|segundo|à proporção que|à medida que|ao passo que|quanto mais...mais)\b|\.'
+CONJUNCAO_PATTERN = r'\b(e|nem|também|bem como|não só...mas|também|mas|porém|contudo|todavia|entretanto|no entanto|não obstante|ou|ou...ou|já...já|ora...ora|quer...quer|seja...seja|logo|pois|portanto|assim|por isso|por consequência|por conseguinte|porque|que|porquanto|visto que|uma vez que|já que|pois que|como|tanto que|tão que|tal que|tamanho que|de forma que|de modo que|de sorte que|de tal forma que|a fim de que|para que|quando|enquanto|agora que|logo que|desde que|assim que|tanto que|apenas|se|caso|desde|salvo se|exceto se|contando que|embora|conquanto|ainda que|mesmo que|se bem que|posto que|assim como|tal|qual|tanto como|conforme|consoante|segundo|à proporção que|à medida que|ao passo que|quanto mais...mais)\b|\.'
+
+def extrair_trechos_depois_de_que(texto: str) -> list[str]:
+    """
+    Encontra todos os trechos que começam após a palavra 'que' e
+    vão até a próxima conjunção do padrão CONJUNCAO_PATTERN ou até um ponto final.
+
+    Args:
+        texto: Texto de entrada.
+        incluir_que: Se True, inclui a palavra 'que' no início de cada trecho retornado.
+
+    Returns:
+        Lista de strings com os trechos encontrados (sem vazios).
+    """
+    # Regex: 'que' (palavra), depois capturamos minimamente até a próxima conjunção ou ponto.
+    padrao = re.compile(
+        rf"\bque\b\s*(?P<trecho>.*?)(?=\s*(?:{CONJUNCAO_PATTERN}))",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    resultados = []
+    for m in padrao.finditer(texto):
+        trecho = m.group("trecho").strip()
+        if trecho:  # ignora capturas vazias (ex.: 'que que ...')
+            resultados.append(trecho)
+    return resultados
+
+with open('textos.txt', 'r') as arquivo:
+    noticias = [linha.strip() for linha in arquivo.readlines()]
 
 termos_relevantes_geral = []
-for resumo in resumos_bert:
-    partes = re.split(conjuncao_pattern, resumo)
-    partes = [parte.strip() for parte in partes if parte is not None and parte.strip()]
-    results = claimdetection(partes)
-    termos_relevantes_resumo = []
-    for i, result in enumerate(results):
-        if result['label'] == 'factual':
-            termos_relevantes_resumo.append(partes[i])
-    termos_relevantes_geral.append(str(termos_relevantes_resumo))
+for noticia in noticias:
+    trechos = extrair_trechos_depois_de_que(noticia)
+    termos_relevantes_geral.append(str(noticia))
 
 
 df_resumos = pd.DataFrame({
@@ -370,9 +387,9 @@ df_resumos = pd.DataFrame({
     'termos_relevantes': termos_relevantes_geral
 })
 
-df_resumos.to_excel('resultados/check_worthy_results.xlsx', index=False, engine='openpyxl')
+df_resumos.to_excel('resultados/NoticiaCompleta.xlsx', index=False, engine='openpyxl')
 
-wb = load_workbook('resultados/check_worthy_results.xlsx')
+wb = load_workbook('resultados/NoticiaCompleta.xlsx')
 ws = wb.active
 
 ws.column_dimensions[get_column_letter(1)].width = 20
@@ -386,6 +403,6 @@ for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=6):
     for cell in row:
         cell.alignment = Alignment(wrap_text=True)
 
-wb.save('resultados/check_worthy_results.xlsx')
+wb.save('resultados/NoticiaCompleta.xlsx')
 
 print(f"\nTEMPO TOTAL: {end_time - start_time:.6f} segundos")
