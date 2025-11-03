@@ -5,6 +5,7 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import ast
 from collections import Counter
 
 # Modelos de sumarização
@@ -25,6 +26,37 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Classificação de “factual”
 from transformers import pipeline
 
+def carregar_resumos_da_coluna_f(caminho_xlsx):
+    df = pd.read_excel(caminho_xlsx)      # 1ª linha é o header → ok
+    col_f = df.iloc[:, 5]                 # coluna F = índice 5 (0=A, 1=B, ..., 5=F)
+
+    resumos = []
+    for cel in col_f:
+        if pd.isna(cel):
+            resumos.append("")            # célula vazia → resumo vazio
+            continue
+
+        # caso mais comum: a célula é uma string que PARECE uma lista
+        if isinstance(cel, str):
+            try:
+                possivel_lista = ast.literal_eval(cel)
+                if isinstance(possivel_lista, (list, tuple)):
+                    texto = " ".join(str(x) for x in possivel_lista)
+                else:
+                    # era string mas não era lista → usa como está
+                    texto = str(possivel_lista)
+            except (SyntaxError, ValueError):
+                # não era uma lista em string → usa o próprio texto
+                texto = cel
+        # se por acaso já vier como lista mesmo
+        elif isinstance(cel, (list, tuple)):
+            texto = " ".join(str(x) for x in cel)
+        else:
+            texto = str(cel)
+
+        resumos.append(texto)
+
+    return resumos
 
 # ====================== 0) Utilidades e Setup ======================
 def ensure_nltk():
@@ -202,6 +234,47 @@ for nome_modelo, mdl in modelos.items():
 
         except Exception as e:
             print(f"[ERRO] Modelo={nome_modelo} texto#{i}: {e}")
+
+resumos_excel = carregar_resumos_da_coluna_f("queTextos.xlsx")
+
+for i, original in enumerate(noticias):
+    try:
+        # pega o resumo da linha i da coluna F
+        resumo_m = resumos_excel[i]
+
+        t0 = time.time()
+        # aqui NÃO chamamos mais o modelo, porque o resumo já veio do Excel
+        dur = time.time() - t0   # vai dar bem pequeno, mas mantém o campo
+
+        comp = (len(resumo_m) / max(len(original), 1))
+        sim  = similaridade_tfidf(original, resumo_m)
+
+        kw_orig = resumo_to_keywords(original, tagger, kw_model, topn=10)
+        kw_res  = resumo_to_keywords(resumo_m, tagger, kw_model, topn=10)
+        jacc    = jaccard(kw_orig, kw_res)
+
+        fact = factual_share(resumo_m)
+
+        registros.append({
+            "modelo": "'que'",
+            "idx_texto": i,
+            "tempo_s": dur,
+            "compression_ratio": comp,
+            "sim_tfidf": sim,
+            "jaccard_kw": jacc,
+            "factual_share": fact
+        })
+
+        resumos_reg.append({
+            "idx_texto": i,
+            "modelo": nome_modelo,
+            "len_texto": len(resumo_m),
+            "tipo": "Resumo"
+        })
+
+    except IndexError:
+        # caso o Excel tenha menos linhas que 'noticias'
+        break
 
 # ---------- Baseline "Original" (comparação direta com os textos originais) ----------
 # Adiciona uma linha por texto para o pseudo-modelo "Original"
