@@ -337,11 +337,11 @@ def plot_bar(df, col, titulo, ylabel, fname):
     plt.close()
 
 # Barras agregadas (AGORA COM 'Original')
-plot_bar(agg, "tempo_medio_s", "Tempo médio por texto (inclui Original)", "segundos", "tempo_medio_com_original")
-plot_bar(agg, "sim_tfidf_medio", "Similaridade TF-IDF média (inclui Original)", "cosseno", "sim_tfidf_medio_com_original")
-plot_bar(agg, "jaccard_kw_medio", "Overlap de palavras-chave (Jaccard) — (inclui Original)", "índice (0–1)", "jaccard_kw_medio_com_original")
-plot_bar(agg, "factual_share_medio", "% trechos factuais (inclui Original)", "proporção (0–1)", "factual_share_medio_com_original")
-plot_bar(agg, "compression_ratio_medio", "Compression ratio médio (inclui Original)", "|resumo|/|original|", "compression_ratio_medio_com_original")
+plot_bar(agg, "tempo_medio_s", "Tempo médio por texto", "segundos", "tempo_medio_com_original")
+plot_bar(agg, "sim_tfidf_medio", "Similaridade TF-IDF média", "cosseno", "sim_tfidf_medio_com_original")
+plot_bar(agg, "jaccard_kw_medio", "Overlap de palavras-chave (Jaccard)", "índice (0–1)", "jaccard_kw_medio_com_original")
+plot_bar(agg, "factual_share_medio", "% trechos factuais", "proporção (0–1)", "factual_share_medio_com_original")
+plot_bar(agg, "compression_ratio_medio", "Compression ratio médio", "|resumo|/|original|", "compression_ratio_medio_com_original")
 
 
 # Radar — geramos DUAS versões: sem baseline e com baseline
@@ -383,13 +383,13 @@ radar_plot(agg[agg["modelo"]!="Original"], "Radar de desempenho (modelos)", "rad
 radar_plot(agg, "Radar de desempenho (modelos + Original)", "radar_com_original")
 
 
-# ====================== 5) Boxplots por métrica (inclui Original) ======================
+# ====================== 5) Boxplots por métrica ======================
 def boxplot_metric(df, col, ylabel, fname):
     modelos_ord = df['modelo'].unique()
     data = [df.loc[df['modelo']==m, col].dropna().values for m in modelos_ord]
     plt.figure(figsize=(8,5))
     plt.boxplot(data, labels=modelos_ord, showmeans=True)
-    plt.title(f"Distribuição por texto — {ylabel} (inclui Original)")
+    plt.title(f"Distribuição por texto — {ylabel}")
     plt.ylabel(ylabel)
     plt.xticks(rotation=15)
     plt.tight_layout()
@@ -403,14 +403,14 @@ boxplot_metric(df_metrics, 'tempo_s', 'Tempo (s)', 'tempo_s_com_original')
 boxplot_metric(df_metrics, 'factual_share', '% Factual', 'factual_share_com_original')
 
 
-# ====================== 6) Scatter trade-offs (inclui Original) ======================
+# ========== 6) Scatter trade-offs ======================
 def scatter_xy(df, xcol, ycol, xlabel, ylabel, fname):
     plt.figure(figsize=(7,5))
     for m in df['modelo'].unique():
         sub = df[df['modelo']==m]
         plt.scatter(sub[xcol], sub[ycol], label=m, alpha=0.7)
     plt.xlabel(xlabel); plt.ylabel(ylabel)
-    plt.title(f"{ylabel} vs {xlabel} (inclui Original)")
+    plt.title(f"{ylabel} vs {xlabel}")
     plt.legend()
     plt.tight_layout()
     plt.savefig(f"resultados2/scatter_{fname}.png", dpi=160)
